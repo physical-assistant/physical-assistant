@@ -1,4 +1,4 @@
-// ignore errors, they will disappear when ran in Arduino IDE
+//   ignore errors, they will disappear when ran in Arduino IDE
 #include <Wire.h>
 #include "MAX30105.h"    // Use the SparkFun MAX3010x library
 #include "heartRate.h"
