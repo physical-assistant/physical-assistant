@@ -1,0 +1,14 @@
+import serial
+from playsound import playsound
+
+ser = serial.Serial('COM3', 115200)  # match your Arduino code!
+
+while True:
+    line = ser.readline().decode().strip()
+    print("Received:", line)
+
+    if line == "PLAY1":
+        playsound("sound1.mp3")
+
+    elif line == "PLAY2":
+        playsound("sound2.mp3")
