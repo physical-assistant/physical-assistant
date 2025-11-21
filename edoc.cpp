@@ -8,6 +8,12 @@ const int WHITE_LED1 = 11;   // LED #1
 const int WHITE_LED2 = 12;   // LED #2
 const int WHITE_LED3 = 13;   // LED #3
 
+// calibration values for accelerometer: 
+const float RestX = 1.403;
+const float RestY = 1.399;
+const float RestZ = 1.461;
+
+const float Sensitivity = 0.166; // V/g
 
 
 
@@ -190,9 +196,9 @@ void readAccelerometer() {
   float zVoltage = readAveragedVoltage(zPin, SAMPLES);
 
   // Convert voltages to g (gravity units)
-  float g_x = (xVoltage - RestVoltage) / sensitivity;
-  float g_y = (yVoltage - RestVoltage) / sensitivity;
-  float g_z = (zVoltage - RestVoltage) / sensitivity;
+float g_x = (xVoltage - RestX) / Sensitivity;
+float g_y = (yVoltage - RestY) / Sensitivity;
+float g_z = (zVoltage - RestZ) / Sensitivity;
 
   // Convert g to m/s^2
   float rawAccelX = g_x * 9.81;
