@@ -3,6 +3,14 @@
 
 DFRobot_MAX30102 particleSensor;
 
+//white leds
+const int WHITE_LED1 = 11;   // LED #1
+const int WHITE_LED2 = 12;   // LED #2
+const int WHITE_LED3 = 13;   // LED #3
+
+
+
+
 // ---- Configurable thresholds ----
 const int LOW_HR_THRESHOLD      = 50;     // bpm
 const int HIGH_HR_THRESHOLD     = 110;    // bpm
@@ -103,6 +111,14 @@ void setup() {
     ADCRANGE_16384
   );
 
+// white led setup
+  pinMode(WHITE_LED1, OUTPUT);
+  pinMode(WHITE_LED2, OUTPUT);
+  pinMode(WHITE_LED3, OUTPUT);
+
+
+
+
   // Blue LED setup
   pinMode(BLUE_LED_PIN, OUTPUT);
   digitalWrite(BLUE_LED_PIN, LOW);
@@ -121,6 +137,20 @@ void setup() {
 }
 
 void loop() {
+
+  //white led pattern (chase)
+  digitalWrite(WHITE_LED1, HIGH);
+  delay(300);
+  digitalWrite(WHITE_LED1, LOW);
+
+  digitalWrite(WHITE_LED2, HIGH);
+  delay(300);
+  digitalWrite(WHITE_LED2, LOW);
+
+  digitalWrite(WHITE_LED3, HIGH);
+  delay(300);
+  digitalWrite(WHITE_LED3, LOW);
+
   // --- Read accelerometer ---
   readAccelerometer();
 
