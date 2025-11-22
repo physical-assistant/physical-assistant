@@ -1,5 +1,11 @@
 #include <DFRobot_MAX30102.h>
 #include <Wire.h>
+#include <TM1637Display.h>
+
+#define CLK 2
+#define DIO 3
+
+TM1637Display display(CLK, DIO);
 
 DFRobot_MAX30102 particleSensor;
 
@@ -7,6 +13,13 @@ DFRobot_MAX30102 particleSensor;
 bool lastB7 = HIGH;
 bool lastB8 = HIGH;
 bool lastB9 = HIGH;
+
+// ----------------- CLOCK VARIABLES -----------------
+int clockHours = 12;
+int clockMinutes = 55;
+int clockSeconds = 0;
+unsigned long clockPreviousMillis = 0;
+bool colonOn = true;
 
 // ----------------- WHITE LED CHASE -----------------
 const unsigned long WHITE_STEP_INTERVAL = 150;  // ms between steps
@@ -119,6 +132,9 @@ void handleButtons();
 void handleBlueLEDTimer();
 void readHeartbeat();
 void outputDataForWebApp();
+void handleWhiteLEDChase();
+void updateClock();
+void setTime(int h, int m, int s);
 
 // =======================================================
 // ======================= SETUP =========================
@@ -127,6 +143,9 @@ void outputDataForWebApp();
 void setup() {
   Serial.begin(115200);
   Wire.begin();
+  
+  display.setBrightness(0x0f);
+  
   pinMode(7, INPUT_PULLUP);
   pinMode(8, INPUT_PULLUP);
   pinMode(9, INPUT_PULLUP);
@@ -179,18 +198,14 @@ void setup() {
 
 void loop() {
 
-
-  // White LED pattern
-  //digitalWrite(WHITE_LED1, HIGH); delay(300); digitalWrite(WHITE_LED1, LOW);
-  //digitalWrite(WHITE_LED2, HIGH); delay(300); digitalWrite(WHITE_LED2, LOW);
-  //digitalWrite(WHITE_LED3, HIGH); delay(300); digitalWrite(WHITE_LED3, LOW);
   handleWhiteLEDChase();
-
   readAccelerometer();
   handleButtons();
   handleBlueLEDTimer();
   readHeartbeat();
   outputDataForWebApp();
+  updateClock();
+  
   int b7 = digitalRead(7);
   int b8 = digitalRead(8);
   int b9 = digitalRead(9);
@@ -209,6 +224,43 @@ void loop() {
   lastB8 = b8;
   lastB9 = b9;
   delay(20);
+}
+
+// =======================================================
+// ======================= CLOCK =========================
+// =======================================================
+
+void updateClock() {
+  unsigned long currentMillis = millis();
+  
+  if (currentMillis - clockPreviousMillis >= 1000) {
+    clockPreviousMillis = currentMillis;
+    
+    clockSeconds++;
+    if (clockSeconds >= 60) {
+      clockSeconds = 0;
+      clockMinutes++;
+      if (clockMinutes >= 60) {
+        clockMinutes = 0;
+        clockHours++;
+        if (clockHours >= 24) {
+          clockHours = 0;
+        }
+      }
+    }
+    
+    colonOn = !colonOn;
+    
+    int timeValue = (clockHours * 100) + clockMinutes;
+    uint8_t colonMask = colonOn ? 0b01000000 : 0b00000000;
+    display.showNumberDecEx(timeValue, colonMask, true);
+  }
+}
+
+void setTime(int h, int m, int s) {
+  clockHours = h;
+  clockMinutes = m;
+  clockSeconds = s;
 }
 
 // =======================================================
@@ -276,12 +328,12 @@ void readAccelerometer() {
   // === DYNAMIC ACCELERATION ===
   dynamicAccel = totalAccel - restingMagnitude;
 
-  // Noise floor: ignore tiny “movement” (sensor noise / micro-vibration)
+  // Noise floor: ignore tiny "movement" (sensor noise / micro-vibration)
   if (dynamicAccel < DYN_NOISE_FLOOR) {
     dynamicAccel = 0;
   }
 
-  // === DYNAMIC AVERAGE (approx “last ~few seconds” via EMA) ===
+  // === DYNAMIC AVERAGE (approx "last ~few seconds" via EMA) ===
   const float ACT_ALPHA = 0.9;   // smoothing for activity index
   dynAvg = ACT_ALPHA * dynAvg + (1.0 - ACT_ALPHA) * dynamicAccel;
 
