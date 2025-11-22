@@ -15,8 +15,6 @@ const float RestZ = 1.461;
 
 const float Sensitivity = 0.166; // V/g
 
-
-
 // ---- Configurable thresholds ----
 const int LOW_HR_THRESHOLD      = 50;     // bpm
 const int HIGH_HR_THRESHOLD     = 110;    // bpm
@@ -40,7 +38,7 @@ float currentBPM = 0;  // Store current averaged BPM
 
 // ---- Blue LED timer ----
 const int BLUE_LED_PIN = 13;
-const unsigned long CYCLE_TIME = 5UL * 60 * 1000;  // 5 minutes
+const unsigned long CYCLE_TIME = 5UL * 60 * 1000;   // 5 minutes
 const unsigned long ON_TIME = 30UL * 1000;          // 30 seconds
 const unsigned long OFF_TIME = CYCLE_TIME - ON_TIME; // 4 min 30 sec
 unsigned long previousMillis = 0;
@@ -98,6 +96,12 @@ unsigned long fallDetectedTime = 0;
 // ---- Function Prototypes ----
 float readAveragedVoltage(int pin, int samples);
 float smoothValue(float newVal, float prevVal, float alpha);
+void readAccelerometer();
+void detectFall(float ax, float ay, float az);
+void handleButtons();
+void handleBlueLEDTimer();
+void readHeartbeat();
+void outputDataForWebApp();
 
 void setup() {
   Serial.begin(115200);
@@ -105,25 +109,24 @@ void setup() {
 
   // Initialize MAX30102
   while (!particleSensor.begin()) {
+    // If you want to debug, you can uncomment:
+    // Serial.println("ERROR: MAX30102 NOT FOUND");
     delay(1000);
   }
 
   particleSensor.sensorConfiguration(
     50,               // LED brightness (stronger signal)
-    SAMPLEAVG_8,       // Average samples
-    MODE_RED_IR,       // Use both IR + Red
-    SAMPLERATE_100,    // Slower sample rate = smoother signal
-    PULSEWIDTH_411,    // Long pulse = better range
+    SAMPLEAVG_8,      // Average samples
+    MODE_RED_IR,      // Use both IR + Red
+    SAMPLERATE_100,   // Slower sample rate = smoother signal
+    PULSEWIDTH_411,   // Long pulse = better range
     ADCRANGE_16384
   );
 
-// white led setup
+  // white led setup
   pinMode(WHITE_LED1, OUTPUT);
   pinMode(WHITE_LED2, OUTPUT);
   pinMode(WHITE_LED3, OUTPUT);
-
-
-
 
   // Blue LED setup
   pinMode(BLUE_LED_PIN, OUTPUT);
@@ -196,9 +199,9 @@ void readAccelerometer() {
   float zVoltage = readAveragedVoltage(zPin, SAMPLES);
 
   // Convert voltages to g (gravity units)
-float g_x = (xVoltage - RestX) / Sensitivity;
-float g_y = (yVoltage - RestY) / Sensitivity;
-float g_z = (zVoltage - RestZ) / Sensitivity;
+  float g_x = (xVoltage - RestX) / Sensitivity;
+  float g_y = (yVoltage - RestY) / Sensitivity;
+  float g_z = (zVoltage - RestZ) / Sensitivity;
 
   // Convert g to m/s^2
   float rawAccelX = g_x * 9.81;
@@ -251,6 +254,9 @@ void detectFall(float ax, float ay, float az) {
       fallDetected = 1;
       fallDetectedTime = now;
       isFalling = false;
+
+      // >>> SEND FALL EVENT TO COMPUTER <<<
+      Serial.println("EVENT:FALL");
     }
     
     // Reset if fall window expires without impact
@@ -272,6 +278,9 @@ void handleButtons() {
       digitalWrite(LED_PIN, HIGH);
       delay(100);
       digitalWrite(LED_PIN, LOW);
+
+      // >>> SEND BUTTON EVENT TO COMPUTER FOR TESTING <<<
+      Serial.println("EVENT:BUTTON1");
     }
   }
   lastButton1Reading = button1Reading;
@@ -284,6 +293,8 @@ void handleButtons() {
       digitalWrite(LED_PIN, HIGH);
       delay(100);
       digitalWrite(LED_PIN, LOW);
+      // you could also send EVENT:BUTTON2 here if you want another sound
+      // Serial.println("EVENT:BUTTON2");
     }
   }
   lastButton2Reading = button2Reading;
