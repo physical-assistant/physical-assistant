@@ -8,6 +8,10 @@ bool lastB7 = HIGH;
 bool lastB8 = HIGH;
 bool lastB9 = HIGH;
 
+// ----------------- WHITE LED CHASE -----------------
+const unsigned long WHITE_STEP_INTERVAL = 150;  // ms between steps
+unsigned long lastWhiteStepTime = 0;
+int whiteStep = 0;  // 0,1,2 for LED1, LED2, LED3
 
 
 // ----------------- ACCELERATION VARIABLES -----------------
@@ -54,8 +58,8 @@ int bpmCount = 0;
 float currentBPM = 0;
 
 // ----------------- LED TIMER -----------------
-const int BLUE_LED_PIN = 13;
-const unsigned long CYCLE_TIME = 5UL * 60 * 1000;
+const int BLUE_LED_PIN = 10;
+const unsigned long CYCLE_TIME = 2UL * 60 * 1000;
 const unsigned long ON_TIME = 30UL * 1000;
 const unsigned long OFF_TIME = CYCLE_TIME - ON_TIME;
 
@@ -96,8 +100,8 @@ float accelZSmooth = 0.0;
 const float ACCEL_ALPHA = 0.8;
 
 // ----------------- FALL VARIABLES -----------------
-const float FREE_FALL_THRESHOLD = 6.0;
-const float IMPACT_THRESHOLD = 12.0;
+const float FREE_FALL_THRESHOLD = 5.0;
+const float IMPACT_THRESHOLD = 20.0;
 const unsigned long FALL_WINDOW = 1500;
 const unsigned long FALL_COOLDOWN = 5000;
 
@@ -180,6 +184,7 @@ void loop() {
   //digitalWrite(WHITE_LED1, HIGH); delay(300); digitalWrite(WHITE_LED1, LOW);
   //digitalWrite(WHITE_LED2, HIGH); delay(300); digitalWrite(WHITE_LED2, LOW);
   //digitalWrite(WHITE_LED3, HIGH); delay(300); digitalWrite(WHITE_LED3, LOW);
+  handleWhiteLEDChase();
 
   readAccelerometer();
   handleButtons();
@@ -222,6 +227,24 @@ float readAveragedVoltage(int pin, int samples) {
 float smoothValue(float newVal, float prevVal, float alpha) {
   return alpha * prevVal + (1.0 - alpha) * newVal;
 }
+
+void handleWhiteLEDChase() {
+  unsigned long now = millis();
+
+  // Only update when enough time has passed
+  if (now - lastWhiteStepTime >= WHITE_STEP_INTERVAL) {
+    lastWhiteStepTime = now;
+
+    // Advance to next step in the chase
+    whiteStep = (whiteStep + 1) % 3;  // 0 → 1 → 2 → 0 ...
+
+    // Turn the correct LED on, others off
+    digitalWrite(WHITE_LED1, (whiteStep == 0) ? HIGH : LOW);
+    digitalWrite(WHITE_LED2, (whiteStep == 1) ? HIGH : LOW);
+    digitalWrite(WHITE_LED3, (whiteStep == 2) ? HIGH : LOW);
+  }
+}
+
 
 void readAccelerometer() {
   float xVoltage = readAveragedVoltage(xPin, SAMPLES);
@@ -278,11 +301,11 @@ void readAccelerometer() {
 // =======================================================
 // ================= FALL DETECTION ======================
 // =======================================================
-
 void detectFall(float ax, float ay, float az) {
   float instTotal = sqrt(ax * ax + ay * ay + az * az);
   unsigned long now = millis();
 
+  // Reset fall after cooldown
   if (fallDetected == 1 && (now - fallDetectedTime) > FALL_COOLDOWN) {
     fallDetected = 0;
     isFalling = false;
@@ -290,20 +313,24 @@ void detectFall(float ax, float ay, float az) {
 
   if (fallDetected == 1) return;
 
+  // Phase 1: Detect free-fall (very low acceleration)
   if (instTotal < FREE_FALL_THRESHOLD && !isFalling) {
     isFalling = true;
     fallStartTime = now;
   }
 
+  // Phase 2: Detect impact after free-fall
   if (isFalling) {
     unsigned long fallDuration = now - fallStartTime;
 
-    if (instTotal > IMPACT_THRESHOLD && fallDuration < FALL_WINDOW) {
+    // Need BOTH: high impact AND some recent activity
+    if (instTotal > IMPACT_THRESHOLD && fallDuration < FALL_WINDOW && activityIndex >= 3) {
       fallDetected = 1;
       fallDetectedTime = now;
       isFalling = false;
     }
 
+    // Timeout - no impact detected
     if (fallDuration > FALL_WINDOW) {
       isFalling = false;
     }
