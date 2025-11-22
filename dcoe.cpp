@@ -3,6 +3,13 @@
 
 DFRobot_MAX30102 particleSensor;
 
+// declare global variable for button1
+bool lastB7 = HIGH;
+bool lastB8 = HIGH;
+bool lastB9 = HIGH;
+
+
+
 // ----------------- ACCELERATION VARIABLES -----------------
 float totalAccel = 0.0;        // |A| smoothed magnitude
 float dynamicAccel = 0.0;      // |A| - |A_rest|
@@ -116,6 +123,9 @@ void outputDataForWebApp();
 void setup() {
   Serial.begin(115200);
   Wire.begin();
+  pinMode(7, INPUT_PULLUP);
+  pinMode(8, INPUT_PULLUP);
+  pinMode(9, INPUT_PULLUP);
 
   // Initialize MAX30102
   while (!particleSensor.begin()) {
@@ -176,7 +186,23 @@ void loop() {
   handleBlueLEDTimer();
   readHeartbeat();
   outputDataForWebApp();
+  int b7 = digitalRead(7);
+  int b8 = digitalRead(8);
+  int b9 = digitalRead(9);
 
+  if (b7 == LOW && lastB7 == HIGH) {
+    Serial.println("BUTTON1");
+  }
+  if (b8 == LOW && lastB8 == HIGH) {
+    Serial.println("BUTTON2");
+  }
+  if (b9 == LOW && lastB9 == HIGH) {
+    Serial.println("BUTTON3");
+  }
+
+  lastB7 = b7;
+  lastB8 = b8;
+  lastB9 = b9;
   delay(20);
 }
 
