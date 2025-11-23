@@ -15,6 +15,7 @@ bool lastB8 = HIGH;
 bool lastB9 = HIGH;
 
 // ----------------- CLOCK VARIABLES -----------------
+// Simple software clock, updated with millis()
 int clockHours = 4;
 int clockMinutes = 59;
 int clockSeconds = 0;
@@ -22,6 +23,7 @@ unsigned long clockPreviousMillis = 0;
 bool colonOn = true;
 
 // ----------------- AUTOMATIC WORKOUT SCHEDULE -----------------
+// Struct to hold a workout trigger time and whether it has fired this minute
 struct WorkoutTime {
   int hour;
   int minute;
@@ -30,22 +32,24 @@ struct WorkoutTime {
 
 // Define your workout times here (24-hour format)
 WorkoutTime workoutSchedule[] = {
-  {11, 0, false},   // 8:00 AM
-  {2, 0, false},  // 12:00 PM
-  {5, 0, false}, // 5:30 PM
+  {11, 0, false},   // 11:00
+  {2, 0, false},    // 02:00 (current clock uses 0–23 range)
+  {5, 0, false},    // 05:00
 };
 
 const int NUM_WORKOUTS = sizeof(workoutSchedule) / sizeof(WorkoutTime);
 
 // ----------------- WHITE LED CHASE -----------------
+// Non-blocking chase timing
 const unsigned long WHITE_STEP_INTERVAL = 1000;  // ms between steps
 unsigned long lastWhiteStepTime = 0;
 int whiteStep = 0;  // 0,1,2 for LED1, LED2, LED3
 bool whiteLEDActive = false;  // controls if white LED chase is running
-int whiteStartButton = 0;  // which button started the white LEDs (7, 8, or 9)
+int whiteStartButton = 0;     // which button started the white LEDs (7, 8, or 9)
 
 
 // ----------------- ACCELERATION VARIABLES -----------------
+// Magnitude of acceleration and motion relative to rest
 float totalAccel = 0.0;        // |A| smoothed magnitude
 float dynamicAccel = 0.0;      // |A| - |A_rest|
 float restingMagnitude = 0.0;  // |A| when the device is still
@@ -58,30 +62,36 @@ int activityIndex = 0;         // 0–100
 const float DYN_NOISE_FLOOR = 0.5;   // m/s^2, tweak 0.3–0.7 if needed
 
 // ----------------- LED PINS -----------------
+// Three white LEDs used in the chase pattern
 const int WHITE_LED1 = 11;
 const int WHITE_LED2 = 12;
 const int WHITE_LED3 = 13;
 
 // ----------------- ACCELEROMETER CALIBRATION -----------------
+// Rest voltages from calibration and sensitivity (V/g)
 const float RestX = 1.403;
 const float RestY = 1.399;
 const float RestZ = 1.461;
 const float Sensitivity = 0.166; // V/g
 
 // ----------------- HEART RATE VARIABLES -----------------
+// Heart rate thresholds for later use on the dashboard / logic layer
 const int LOW_HR_THRESHOLD = 50;
 const int HIGH_HR_THRESHOLD = 110;
 const unsigned long NO_BEAT_MS = 3000;
 
+// Exponential moving average for IR baseline
 const float ALPHA = 0.95;
 long irBaseline = 0;
 bool aboveThreshold = false;
 unsigned long lastBeatTime = 0;
 
+// Peak detection threshold and allowed beat intervals
 int BEAT_THRESHOLD = 1000;
 const int MIN_BEAT_MS = 300;
 const int MAX_BEAT_MS = 2000;
 
+// Rolling buffer to smooth BPM readings
 const int BPM_BUF_SIZE = 4;
 float bpmBuffer[BPM_BUF_SIZE];
 int bpmIndex = 0;
@@ -89,17 +99,19 @@ int bpmCount = 0;
 float currentBPM = 0;
 
 // ----------------- LED TIMER -----------------
+// Blue LED is used as a timed cue (off most of the time, on briefly)
 const int BLUE_LED_PIN = 10;
-const unsigned long CYCLE_TIME = 2UL * 60 * 1000;
-const unsigned long ON_TIME = 30UL * 1000;
+const unsigned long CYCLE_TIME = 2UL * 60 * 1000;   // 2 minutes total
+const unsigned long ON_TIME = 30UL * 1000;          // 30 seconds on
 const unsigned long OFF_TIME = CYCLE_TIME - ON_TIME;
 
 unsigned long previousMillis = 0;
 bool ledState = false;
 bool blueLEDActive = false;  // controls if blue LED timer is running
-int blueStartButton = 0;  // which button started the blue LED (7, 8, or 9)
+int blueStartButton = 0;     // which button started the blue LED (7, 8, or 9)
 
 // ----------------- BUTTONS -----------------
+// Extra buttons + a small status LED on pin 13
 const int BUTTON1_PIN = 8;
 const int BUTTON2_PIN = 9;
 const int LED_PIN = 13;
@@ -107,6 +119,7 @@ const int LED_PIN = 13;
 bool button1State = false;
 bool button2State = false;
 
+// Debounce state tracking
 bool lastButton1Reading = HIGH;
 bool lastButton2Reading = HIGH;
 unsigned long lastButton1Time = 0;
@@ -114,15 +127,18 @@ unsigned long lastButton2Time = 0;
 const unsigned long debounceDelay = 50;
 
 // ----------------- DATA OUTPUT -----------------
+// Controls how often data is sent to the serial web app
 unsigned long lastOutputTime = 0;
 const unsigned long OUTPUT_INTERVAL = 1000;  // 1s
 
 // ----------------- ACCELEROMETER -----------------
+// Analog pins for the 3 axes
 const int xPin = A0;
 const int yPin = A1;
 const int zPin = A3;
-const int SAMPLES = 10;
+const int SAMPLES = 10;  // number of raw readings per averaged sample
 
+// Raw/smoothed acceleration in m/s^2
 float accelX = 0.0;
 float accelY = 0.0;
 float accelZ = 0.0;
@@ -130,9 +146,10 @@ float accelZ = 0.0;
 float accelXSmooth = 0.0;
 float accelYSmooth = 0.0;
 float accelZSmooth = 0.0;
-const float ACCEL_ALPHA = 0.8;
+const float ACCEL_ALPHA = 0.8;  // smoothing factor for axis data
 
 // ----------------- FALL VARIABLES -----------------
+// Free-fall + impact detection thresholds
 const float FREE_FALL_THRESHOLD = 5.0;
 const float IMPACT_THRESHOLD = 20.0;
 const unsigned long FALL_WINDOW = 1500;
@@ -144,6 +161,7 @@ int fallDetected = 0;
 unsigned long fallDetectedTime = 0;
 
 // ----------------- FUNCTION PROTOTYPES -----------------
+// Helper and logic functions used below
 float readAveragedVoltage(int pin, int samples);
 float smoothValue(float newVal, float prevVal, float alpha);
 void readAccelerometer();
@@ -169,26 +187,30 @@ void setup() {
   Serial.begin(115200);
   Wire.begin();
   
-  display.setBrightness(0x0f);
+  display.setBrightness(0x0f);   // Max brightness for the TM1637 display
   
+  // Three physical workout buttons on pins 7,8,9
   pinMode(7, INPUT_PULLUP);
   pinMode(8, INPUT_PULLUP);
   pinMode(9, INPUT_PULLUP);
 
   // Initialize MAX30102
+  // Stay here until sensor responds
   while (!particleSensor.begin()) {
     delay(1000);
   }
 
+  // Configure MAX30102 for IR-only HR
   particleSensor.sensorConfiguration(
-    80,
-    SAMPLEAVG_8,
-    MODE_RED_IR,
-    SAMPLERATE_100,
-    PULSEWIDTH_411,
-    ADCRANGE_16384
+    80,             // LED brightness
+    SAMPLEAVG_8,    // sample averaging
+    MODE_RED_IR,    // use IR + RED (here mainly IR is read)
+    SAMPLERATE_100, // samples per second
+    PULSEWIDTH_411, // LED pulse width
+    ADCRANGE_16384  // ADC range
   );
 
+  // White LED pins as outputs
   pinMode(WHITE_LED1, OUTPUT);
   pinMode(WHITE_LED2, OUTPUT);
   pinMode(WHITE_LED3, OUTPUT);
@@ -198,14 +220,17 @@ void setup() {
   digitalWrite(WHITE_LED2, LOW);
   digitalWrite(WHITE_LED3, LOW);
 
+  // Blue LED setup
   pinMode(BLUE_LED_PIN, OUTPUT);
   digitalWrite(BLUE_LED_PIN, LOW);
 
+  // Extra buttons and status LED
   pinMode(BUTTON1_PIN, INPUT_PULLUP);
   pinMode(BUTTON2_PIN, INPUT_PULLUP);
   pinMode(LED_PIN, OUTPUT);
 
   // ----------------- CALIBRATE RESTING MAGNITUDE -----------------
+  // Take a small sample to estimate |A| when device is at rest
   delay(500);
   float sumMag = 0;
 
@@ -221,7 +246,7 @@ void setup() {
   Serial.print("Resting magnitude calibrated to: ");
   Serial.println(restingMagnitude, 2);
   
-  // Print scheduled workout times
+  // Print scheduled workout times to confirm configuration
   Serial.println("Scheduled workout times:");
   for (int i = 0; i < NUM_WORKOUTS; i++) {
     Serial.print("  ");
@@ -239,6 +264,7 @@ void setup() {
 
 void loop() {
 
+  // Main non-blocking tasks
   handleWhiteLEDChase();
   readAccelerometer();
   handleButtons();
@@ -248,10 +274,12 @@ void loop() {
   updateClock();
   checkScheduledWorkouts();  // Check if it's time for automatic workout
   
+  // Direct reads for physical workout buttons
   int b7 = digitalRead(7);
   int b8 = digitalRead(8);
   int b9 = digitalRead(9);
 
+  // Rising edge detection on each button
   if (b7 == LOW && lastB7 == HIGH) {
     Serial.println("BUTTON1");
     handleButtonPress(7);
@@ -267,9 +295,12 @@ void loop() {
     handleButtonPress(9);
   }
 
+  // Store last states for edge detection
   lastB7 = b7;
   lastB8 = b8;
   lastB9 = b9;
+
+  // Small delay to avoid hammering the loop too fast
   delay(20);
 }
 
@@ -278,6 +309,7 @@ void loop() {
 // =======================================================
 
 void checkScheduledWorkouts() {
+  // Scan all configured workout times
   for (int i = 0; i < NUM_WORKOUTS; i++) {
     // Check if current time matches scheduled time
     if (clockHours == workoutSchedule[i].hour && 
@@ -299,11 +331,11 @@ void checkScheduledWorkouts() {
           startWhiteLEDs(0);  // 0 = automatic start
         }
         if (!blueLEDActive) {
-          startBlueLED(0);  // 0 = automatic start
+          startBlueLED(0);    // 0 = automatic start
         }
       }
     } else {
-      // Reset trigger when we're past this minute
+      // Reset trigger when we're past this minute so it can fire again next day
       workoutSchedule[i].triggered = false;
     }
   }
@@ -314,7 +346,7 @@ void checkScheduledWorkouts() {
 // =======================================================
 
 void handleButtonPress(int buttonNum) {
-  // Check WHITE LED control
+  // Handle WHITE LED state machine
   if (!whiteLEDActive) {
     // White LEDs are off - start them with this button
     startWhiteLEDs(buttonNum);
@@ -327,7 +359,7 @@ void handleButtonPress(int buttonNum) {
     startWhiteLEDs(buttonNum);
   }
   
-  // Check BLUE LED control
+  // Handle BLUE LED state machine
   if (!blueLEDActive) {
     // Blue LED is off - start it with this button
     startBlueLED(buttonNum);
@@ -346,6 +378,7 @@ void handleButtonPress(int buttonNum) {
 // =======================================================
 
 void startWhiteLEDs(int buttonNum) {
+  // Enable chase and remember who started it
   whiteLEDActive = true;
   whiteStartButton = buttonNum;
   lastWhiteStepTime = millis();
@@ -358,6 +391,7 @@ void startWhiteLEDs(int buttonNum) {
 }
 
 void stopWhiteLEDs() {
+  // Stop chase and turn all white LEDs off
   whiteLEDActive = false;
   whiteStartButton = 0;
   digitalWrite(WHITE_LED1, LOW);
@@ -367,6 +401,7 @@ void stopWhiteLEDs() {
 }
 
 void startBlueLED(int buttonNum) {
+  // Enable timed blue LED pattern
   blueLEDActive = true;
   blueStartButton = buttonNum;
   previousMillis = millis();
@@ -380,6 +415,7 @@ void startBlueLED(int buttonNum) {
 }
 
 void stopBlueLED() {
+  // Disable blue LED and ensure it is off
   blueLEDActive = false;
   blueStartButton = 0;
   digitalWrite(BLUE_LED_PIN, LOW);
@@ -394,6 +430,7 @@ void stopBlueLED() {
 void updateClock() {
   unsigned long currentMillis = millis();
   
+  // Tick the clock every 1 second
   if (currentMillis - clockPreviousMillis >= 1000) {
     clockPreviousMillis = currentMillis;
     
@@ -410,6 +447,7 @@ void updateClock() {
       }
     }
     
+    // Blink colon on the display each second
     colonOn = !colonOn;
     
     int timeValue = (clockHours * 100) + clockMinutes;
@@ -419,6 +457,7 @@ void updateClock() {
 }
 
 void setTime(int h, int m, int s) {
+  // Helper if you want to reset the starting time
   clockHours = h;
   clockMinutes = m;
   clockSeconds = s;
@@ -429,15 +468,17 @@ void setTime(int h, int m, int s) {
 // =======================================================
 
 float readAveragedVoltage(int pin, int samples) {
+  // Take multiple analog readings and average them
   long sum = 0;
   for (int i = 0; i < samples; i++) {
     sum += analogRead(pin);
-    delayMicroseconds(500);
+    delayMicroseconds(500);  // short spacing between samples
   }
-  return (sum / (float)samples) * (5.0 / 1023.0);
+  return (sum / (float)samples) * (5.0 / 1023.0); // convert ADC to volts
 }
 
 float smoothValue(float newVal, float prevVal, float alpha) {
+  // Simple exponential smoothing
   return alpha * prevVal + (1.0 - alpha) * newVal;
 }
 
@@ -465,18 +506,22 @@ void handleWhiteLEDChase() {
 
 
 void readAccelerometer() {
+  // Read and average sensor voltages on each axis
   float xVoltage = readAveragedVoltage(xPin, SAMPLES);
   float yVoltage = readAveragedVoltage(yPin, SAMPLES);
   float zVoltage = readAveragedVoltage(zPin, SAMPLES);
 
+  // Convert volts to g using calibration offsets
   float g_x = (xVoltage - RestX) / Sensitivity;
   float g_y = (yVoltage - RestY) / Sensitivity;
   float g_z = (zVoltage - RestZ) / Sensitivity;
 
+  // Convert g to m/s^2
   float rawX = g_x * 9.81;
   float rawY = g_y * 9.81;
   float rawZ = g_z * 9.81;
 
+  // Smooth each axis
   accelXSmooth = smoothValue(rawX, accelXSmooth, ACCEL_ALPHA);
   accelYSmooth = smoothValue(rawY, accelYSmooth, ACCEL_ALPHA);
   accelZSmooth = smoothValue(rawZ, accelZSmooth, ACCEL_ALPHA);
@@ -520,6 +565,7 @@ void readAccelerometer() {
 // ================= FALL DETECTION ======================
 // =======================================================
 void detectFall(float ax, float ay, float az) {
+  // Calculate instantaneous |A| from raw values
   float instTotal = sqrt(ax * ax + ay * ay + az * az);
   unsigned long now = millis();
 
@@ -529,6 +575,7 @@ void detectFall(float ax, float ay, float az) {
     isFalling = false;
   }
 
+  // If a fall is already latched, ignore until cooldown ends
   if (fallDetected == 1) return;
 
   // Phase 1: Detect free-fall (very low acceleration)
@@ -560,12 +607,15 @@ void detectFall(float ax, float ay, float az) {
 // =======================================================
 
 void handleButtons() {
+  // Simple debounced toggle for BUTTON1 and BUTTON2
   bool b1 = digitalRead(BUTTON1_PIN);
   bool b2 = digitalRead(BUTTON2_PIN);
 
+  // Debounce BUTTON1
   if (b1 != lastButton1Reading) lastButton1Time = millis();
   if ((millis() - lastButton1Time) > debounceDelay) {
     if (b1 == LOW && lastButton1Reading == HIGH) {
+      // Toggle state and blink LED as feedback
       button1State = !button1State;
       digitalWrite(LED_PIN, HIGH);
       delay(100);
@@ -574,9 +624,11 @@ void handleButtons() {
   }
   lastButton1Reading = b1;
 
+  // Debounce BUTTON2
   if (b2 != lastButton2Reading) lastButton2Time = millis();
   if ((millis() - lastButton2Time) > debounceDelay) {
     if (b2 == LOW && lastButton2Reading == HIGH) {
+      // Toggle state and blink LED as feedback
       button2State = !button2State;
       digitalWrite(LED_PIN, HIGH);
       delay(100);
@@ -599,6 +651,7 @@ void handleBlueLEDTimer() {
   unsigned long currentMillis = millis();
   unsigned long elapsed = currentMillis - previousMillis;
 
+  // OFF → ON after OFF_TIME has passed
   if (!ledState) {
     if (elapsed >= OFF_TIME) {
       digitalWrite(BLUE_LED_PIN, HIGH);
@@ -606,6 +659,7 @@ void handleBlueLEDTimer() {
       previousMillis = currentMillis;
     }
   } else {
+    // ON → OFF after ON_TIME has passed
     if (elapsed >= ON_TIME) {
       digitalWrite(BLUE_LED_PIN, LOW);
       ledState = false;
@@ -619,30 +673,39 @@ void handleBlueLEDTimer() {
 // =======================================================
 
 void readHeartbeat() {
+  // Read IR signal from MAX30102
   int irValue = particleSensor.getIR();
   unsigned long now = millis();
 
+  // Initialize baseline on first run
   if (irBaseline == 0) irBaseline = irValue;
   else irBaseline = (long)(ALPHA * irBaseline + (1.0 - ALPHA) * irValue);
 
+  // Remove DC component
   long acValue = irValue - irBaseline;
 
+  // Track a rough "max AC" for adaptive thresholding
   static long maxAC = 0;
   maxAC = max(maxAC * 0.98, abs(acValue) * 0.02);
   BEAT_THRESHOLD = max(500, (int)(maxAC * 0.5));
 
+  // Check if we are above current threshold
   bool isAbove = (acValue > BEAT_THRESHOLD);
 
+  // Rising edge = possible heartbeat
   if (isAbove && !aboveThreshold) {
     unsigned long interval = now - lastBeatTime;
 
+    // Only accept plausible heart beat intervals
     if (lastBeatTime != 0 && interval > MIN_BEAT_MS && interval < MAX_BEAT_MS) {
       float instantBPM = 60000.0 / interval;
 
+      // Add to circular buffer
       bpmBuffer[bpmIndex] = instantBPM;
       bpmIndex = (bpmIndex + 1) % BPM_BUF_SIZE;
       if (bpmCount < BPM_BUF_SIZE) bpmCount++;
 
+      // Average BPM buffer for smoother HR value
       float avgBPM = 0;
       for (int i = 0; i < bpmCount; i++) avgBPM += bpmBuffer[i];
       avgBPM /= bpmCount;
@@ -650,11 +713,14 @@ void readHeartbeat() {
       currentBPM = avgBPM;
     }
 
+    // Remember time of this beat
     lastBeatTime = now;
   }
 
+  // Store threshold state for edge detection
   aboveThreshold = isAbove;
 
+  // If no beat for a while, reset BPM
   if (lastBeatTime != 0 && (now - lastBeatTime) > NO_BEAT_MS) {
     lastBeatTime = 0;
     bpmCount = 0;
@@ -669,21 +735,27 @@ void readHeartbeat() {
 void outputDataForWebApp() {
   unsigned long now = millis();
 
+  // Push data once per OUTPUT_INTERVAL
   if (now - lastOutputTime >= OUTPUT_INTERVAL) {
     lastOutputTime = now;
 
+    // HR: integer BPM
     Serial.print("HR:");
     Serial.print((int)currentBPM);
 
+    // ACT: 0–100 activity index
     Serial.print(",ACT:");
     Serial.print(activityIndex);          // 0–100
 
+    // DYN: dynamic acceleration (debug)
     Serial.print(",DYN:");
     Serial.print(dynamicAccel, 2);        // debug / optional
 
+    // MAG: total acceleration magnitude (debug)
     Serial.print(",MAG:");
     Serial.print(totalAccel, 2);          // debug / optional
 
+    // FALL: 0 or 1 fall flag
     Serial.print(",FALL:");
     Serial.println(fallDetected);
   }
