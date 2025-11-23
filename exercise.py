@@ -10,7 +10,7 @@ BAUD_RATE = 115200
 BUTTON_SOUNDS = {
     "BUTTON1": "strengthmp.mp3",
     "BUTTON2": "balance.mp3",
-    "BUTTON3": "whistle.mp3",
+    "BUTTON3": "Workout3.mp3",
 }
 
 # --- Initialize audio ---
