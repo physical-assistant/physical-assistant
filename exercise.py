@@ -8,8 +8,8 @@ SERIAL_PORT = "COM6"
 BAUD_RATE = 115200
 
 BUTTON_SOUNDS = {
-    "BUTTON1": "boing.mp3",
-    "BUTTON2": "train.mp3",
+    "BUTTON1": "strengthmp.mp3",
+    "BUTTON2": "balance.mp3",
     "BUTTON3": "whistle.mp3",
 }
 
@@ -33,6 +33,9 @@ latest_data = {
     "button_pressed": "",
 }
 
+# Track which button is currently playing
+currently_playing = None
+
 connected_clients = set()
 
 async def broadcast(data):
@@ -50,12 +53,28 @@ async def websocket_handler(websocket):
         print(f"Dashboard disconnected. Total clients: {len(connected_clients)}")
 
 def parse_serial_message(msg):
+    global currently_playing
+    
     # Check for button presses
     for button, sound in sounds.items():
         if msg.strip() == button:
             latest_data["button_pressed"] = button
-            sound.play()
-            print(f"▶ Playing sound for {button}")
+            
+            # If this button is already playing, stop it
+            if currently_playing == button:
+                sound.stop()
+                currently_playing = None
+                print(f"⏹ Stopped sound for {button}")
+            else:
+                # Stop any currently playing sound
+                if currently_playing:
+                    sounds[currently_playing].stop()
+                
+                # Play the new sound
+                sound.play()
+                currently_playing = button
+                print(f"▶ Playing sound for {button}")
+            
             return True
 
     # Parse sensor data: HR:72,ACT:15,DYN:1.23,MAG:9.81,FALL:0
